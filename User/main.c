@@ -22,6 +22,7 @@
 #include "Serial.h"
 #include "Delay.h"
 #include "W25Q64.h"
+static unsigned int writePosition;
 unsigned char findOK()
 {
     unsigned char found = 0;
@@ -103,7 +104,7 @@ unsigned char saveToW25()
 {
     uint8_t * data;
     unsigned char size=Serial_GetRxFlag();
-    unsigned char temp;
+    unsigned int temp;
     unsigned int i;
     if (size>0)
     {
@@ -112,14 +113,34 @@ unsigned char saveToW25()
             if (data[i]=='l' && data[i+1]==':')
             {
                 temp=data[i+2];
-                W25Q64_SectorErase(0x000000);
-                W25Q64_PageProgram(0,data+i+3,temp);
-                Serial_SendString("ok");
+
+                W25Q64_PageProgram(writePosition++,data+i+3,temp);
+                Serial_SendString("lok");
             }else if (data[i]=='r' && data[i+1]==':')
             {
                 temp=data[i+2];
                 W25Q64_ReadData(0,data+3+i,temp);
                 Serial_SendArray(data+i+3,temp);
+            }else if (data[i]=='c' && data[i+1]==':')
+            {//c:\01\02\03\04
+                //  high first
+                temp=0;
+                for ( ;  size>2+i ; size--) {
+                    temp=temp<<8;
+                    temp+=data[size-1];
+                }
+                W25Q64_SectorErase(temp);
+                Serial_Printf("cok");
+            }else if (data[i]=='s' && data[i+1]==':')
+            {
+                //  high first
+                temp=0;
+                for ( ;  size>2+i ; size--) {
+                    temp=temp<<8;
+                    temp+=data[size-1];
+                }
+                writePosition=temp;
+                Serial_Printf("sok");
             }
         }
     }
