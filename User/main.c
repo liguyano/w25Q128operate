@@ -1,5 +1,5 @@
-//////////////////////////////////////////////////////////////////////////////////	 
-//???????????????¬¶√Ñ???????????????????????¬¶√ä????
+//////////////////////////////////////////////////////////////////////////////////
+//??????????????????????????????????????????????
 //  ????????   : 1.8??LCD 4??????????(STM32???)
 /******************************************************************************
 //????????????STM32F103C8
@@ -9,7 +9,7 @@
 //              SDA   ??PA7??SDA??
 //              RES   ??PB0
 //              DC    ??PB1
-//              CS    ??PA4 
+//              CS    ??PA4
 //							BL		??PB10
 *******************************************************************************/
 #include "stm32f10x.h"
@@ -20,6 +20,8 @@
 #include <stdio.h>
 #include "stdarg.h"
 #include "Serial.h"
+#include "Delay.h"
+#include "W25Q64.h"
 unsigned char findOK()
 {
     unsigned char found = 0;
@@ -32,15 +34,15 @@ unsigned char findOK()
     {
         const char* a = Serial_get_seril_buffer();
 
-        // Â∞ÜÁºìÂÜ≤Âå∫ÂÜÖÂÆπÂ§çÂà∂Âà∞ tempString
+        // Ω´ª∫≥Â«¯ƒ⁄»›∏¥÷∆µΩ tempString
         for (i = 0; i < len && i < sizeof(tempString) - 1; i++)
         {
             tempString[i] = a[i];
         }
-        tempString[i] = '\0'; // Ê∑ªÂä†ÁªàÊ≠¢Á¨¶Ôºå‰Ωø tempString Êàê‰∏∫Â≠óÁ¨¶‰∏≤
+        tempString[i] = '\0'; // ÃÌº”÷’÷π∑˚£¨ π tempString ≥…Œ™◊÷∑˚¥Æ
 
-        // Âú® tempString ‰∏≠Êü•Êâæ "OK"
-        for (j = 0; j <= len - 2 /*Ëá≥Â∞ëË¶ÅÊúâ‰∏§‰∏™Â≠óÁ¨¶ÊâçËÉΩÊûÑÊàê"OK"*/; j++)
+        // ‘⁄ tempString ÷–≤È’“ "OK"
+        for (j = 0; j <= len - 2 /*÷¡…Ÿ“™”–¡Ω∏ˆ◊÷∑˚≤≈ƒ‹ππ≥…"OK"*/; j++)
         {
             if (tempString[j] == 'O' && tempString[j + 1] == 'K')
             {
@@ -52,11 +54,14 @@ unsigned char findOK()
 
     return found;
 }
+unsigned char connectWifi()
+{
 
+}
 unsigned char connect()
 {
     Serial_SendString("AT+CIPSTART=\"UDP\",\"192.168.0.103\",7001,7001,0\r\n");
-    Delay_ms(100);
+    delay_ms(100);
     return findOK();
 }
 unsigned char recv(char *temp) {
@@ -77,9 +82,8 @@ unsigned char recv(char *temp) {
             if (timeCount == 1) {
                 temp[size++] = tempString[i];
             }
-
         }
-        tempString[i] = '\0'; // Ê∑ªÂä†ÁªàÊ≠¢Á¨¶Ôºå‰Ωø tempString Êàê‰∏∫Â≠óÁ¨¶‰∏≤
+        temp[i] = '\0'; // ÃÌº”÷’÷π∑˚£¨ π tempString ≥…Œ™◊÷∑˚¥Æ
         return j;
     }else  {
         return 0;
@@ -90,68 +94,49 @@ unsigned char recv(char *temp) {
 unsigned char udpSend(char *s ,int size)
 {
     Serial_Printf("AT+CIPSEND=%d\r\n",size);
-    Delay_ms(50);
+    delay_ms(50);
     Serial_SendString(s);
     return findOK();
 }
+//l:1adata
+unsigned char saveToW25()
+{
+    uint8_t * data;
+    unsigned char size=Serial_GetRxFlag();
+    unsigned char temp;
+    unsigned int i;
+    if (size>0)
+    {
+        data=Serial_get_seril_buffer();
+        for (i = 0; i < size; ++i) {
+            if (data[i]=='l' && data[i+1]==':')
+            {
+                temp=data[i+2];
+                W25Q64_SectorErase(0x000000);
+                W25Q64_PageProgram(0,data+i+3,temp);
+                Serial_SendString("ok");
+            }else if (data[i]=='r' && data[i+1]==':')
+            {
+                temp=data[i+2];
+                W25Q64_ReadData(0,data+3+i,temp);
+                Serial_SendArray(data+i+3,temp);
+            }
+        }
+    }
+}
 int main(void)
 {
-    char j=0;
-   char tempString[50];
-    char *a;
-    unsigned char rowNow=1;
-    unsigned int i=0;
-    unsigned int size=0;
-  SystemInit();	//System init.
 
-  delay_init(72);//Delay init.
-  Lcd_Init();
-  Serial_Init();
-    LCD_LED_SET;//√ç¬®¬π√ΩIO¬ø√ò√ñ√Ü¬±¬≥¬π√¢√Å√Å
-    Lcd_Clear(GRAY0);
-    Gui_DrawFont_GBK16(16,0,GREEN,GRAY0,"Test Start");
-	//Serial_SendString("AT\r\n");
-    Serial_SendString("AT+CIPCLOSE\r\n");
-    Delay_ms(500);
- //    Delay_ms(50);
-  //  Serial_SendString("AT+CIPSTART=\"UDP\",\"192.168.0.103\",7001,7001,0\r\n");
- //   Delay_ms(50);
- //   size=sprintf(fstring,"i:%d",i++);
-  //  Serial_Printf("AT+CIPSEND=%d\r\n",size);
- //   Delay_ms(50);
-   // Serial_SendString(fstring);
-   // Delay_ms(50);
-
-    i=connect();
-    if (i==1)
-    {
-        Gui_DrawFont_GBK16(16,0,BLACK,GRAY0,"Connected");
-        i=udpSend("first",5);
-        if (i==1)
-        {
-            Gui_DrawFont_GBK16(16,0,BLACK,GRAY0,"Send ok");
-        }else
-        {   Gui_DrawFont_GBK16(16,0,BLACK,GRAY0,"Send not ok");
-        }
-    }else
-    {
-        Gui_DrawFont_GBK16(16,0,BLACK,GRAY0," not Connected");
-
-
-    }
-
+    Serial_Init();
+		delay_init(72);
+    W25Q64_Init();
+			//W25Q64_SectorErase(0x000000);
+ //   W25Q64_PageProgram(0,data,3);
     while(1)
-  {
-      size=sprintf(tempString,"ÊúâÈõ£„ÅÜ%d",j++);
-      udpSend(tempString,size);
-      Delay_ms(50);
-      if (recv(tempString)>0){
-          Gui_DrawFont_GBK16(0,rowNow*16,RED,GRAY0,tempString);
-          rowNow++;
-          rowNow%=7;
-        }
-      Delay_s(1);
-  }
+    {
+        saveToW25();
+			delay_ms(100);
+    }
 }
 
 
